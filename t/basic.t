@@ -2,10 +2,10 @@ use strict;
 use warnings;
 
 use Test::More;
-use WWW::Mondrian::API;
+use WWW::Rietveld::API;
 use Data::Dumper;
 
-my $cr = WWW::Mondrian::API->new(
+my $cr = WWW::Rietveld::API->new(
     domain   => 'code.open42.com',
     issue    => '6231173',
     email    => 'user@open42.com',
@@ -15,7 +15,7 @@ my $cr = WWW::Mondrian::API->new(
 
 my $expected_issue_url = 'http://code.open42.com/6231173/';
 
-isa_ok( $cr, 'WWW::Mondrian::API' );
+isa_ok( $cr, 'WWW::Rietveld::API' );
 ok( defined $cr->token, "login token defined" )
     or diag explain { token => $cr->token() };
 
