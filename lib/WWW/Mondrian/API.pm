@@ -15,6 +15,8 @@ has domain   => ( is => 'ro', isa     => 'Str',  required => 1 );
 has issue => ( is => 'ro', isa => 'Str', required => 1, lazy_build => 1 );
 has xsrftoken => ( is => 'ro', isa => 'Str', required => 1, lazy_build => 1 );
 has debug => ( is => 'rw', isa => 'Str', default => '0' );
+has title => ( is => 'ro', lazy_build => 1 );
+has description => ( is => 'ro', lazy_build => 1 );
 
 has email       => ( is => 'ro', isa      => 'Str', required   => 1 );
 has password    => ( is => 'rw', isa      => 'Str', required   => 1 );
@@ -26,16 +28,18 @@ has cookiejar  => ( is => 'ro', required => 1, lazy_build => 1 );
 has _issue_url => ( is => 'ro', required => 1, lazy_build => 1 );
 has _http_response =>
     ( is => 'ro', isa => 'HTTP::Response', lazy_build => 1 );
-has messages => ( is => 'ro', isa => 'ArrayRef' );
+has messages => ( is => 'ro', isa => 'ArrayRef' , lazy_build => 1);
 
 sub _build_xsrftoken
 {
     my $self = shift;
 
-    my $html = $self->_http_response->decode_content();
+    # Parse xsrfToken from javascript VAR declaration.
+
+    my $html = $self->_http_response->decoded_content();
     if ($html =~ m/
-            xrsfToken 
-            \s* = \s*     
+            x s r f Token # name of of token
+            \s* = \s*     # 
             ['"]*         # might be quoted
             ( \w{32} )    # xrsfToken is a 32 word chars
             ['"]          # might be quoted
@@ -45,7 +49,7 @@ sub _build_xsrftoken
         return $1;
     }
 
-    $self->dprint( { html => $html } );
+    $self->dprint( Dumper { html => $html } );
     die "xsrfToken parse failure";
 }
 
@@ -54,13 +58,14 @@ sub _build_description
     my $self    = shift;
     my $scraper = scraper
     {
-        process 'id(issue-description)', description => 'TEXT';
+        process '//div[@id="issue-description"]', description => 'TEXT';
+        result 'description';
     };
     my $res = $scraper->scrape( $self->_http_response );
 
     $self->dprint( Dumper { res => $res } );
 
-    return $res->{description};
+    return $res;
 }
 
 sub _build_messages
@@ -71,24 +76,56 @@ sub _build_messages
     {
         process '@message', 'messages[]' => scraper
         {
-            process 'tr(comment-title)>td', author  => 'TEXT';
-            process 'id(cl-message-1)',     comment => 'TEXT';
+            process 'div > table > tr > td';
+            process 'tr.comment_title>td:first-of-type', author  => 'TEXT';
+            #process 'tr > td + td',     comment => 'TEXT';
         };
         result 'messages';
     };
+    $scraper = scraper 
+    {
+            process '@message > div > table > tr > td' , 'messages[]' => scraper
+            {
+                process '*', message => 'TEXT';
+            };
+            result 'messages';
+    };
+    $scraper = scraper 
+    {
+            process 'table.issue-details > tr > td > div#messages >div' , 'messages[]' => scraper
+            {
+                process 'div.header > table > tr > td', author => 'TEXT';
+                process 'div.message-body > pre' , message => 'TEXT';
+            };
+            result 'messages';
+    };
     my $res = $scraper->scrape( $self->_http_response );
-    $self->dprint( Dumper { messages => $res } );
+    my @messages = grep { exists $_->{author} } @$res;
+
+    #$self->dprint( Dumper { messages => \@messages } );
+    return \@messages; 
+}
+
+sub is_lgtm
+{
+    my $self = shift;
+    (   grep { /LGTM/i || /LTGM/i || /looks? good to me/i }
+        map  { $_->{message} }
+        grep { $_->{author} ne 'me' } 
+        @{ $self->messages }
+    ) ? 1 : 0;
 }
 
 sub _build_title
 {
     my $self    = shift;
-    my $scraper = scraper
-    {
-        process 'title', title => 'TEXT';
-    };
-    my $res = $scraper->scrape( $self->_http_response );
-    $self->dprint( Dumper { messages => $res } );
+    my $title   = $self->_http_response->title;
+#    my $scraper = scraper
+#    {
+#        process 'title', title => 'TEXT';
+#    };
+#    my $res = $scraper->scrape( $self->_http_response );
+#    $self->dprint( Dumper { messages => $res } );
 }
 
 sub _build__http_response
