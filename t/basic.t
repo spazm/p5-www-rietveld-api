@@ -22,7 +22,7 @@ ok( defined $cr->token, "login token defined" )
 ok( $cr->authenticate, 'authenticated' );
 diag "authenticated";
 
-is( $cr->_issue_url(), $expected_issue_url, 'issue_url' );
+is( $cr->_issue_url(), $expected_issue_url, 'issue_url' )
     or diag Dumper { '_issue_url' => $cr->_issue_url };
 
 diag explain $cr->auth_cookie;
