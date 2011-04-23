@@ -179,7 +179,7 @@ sub _build_token
             last if $token;
         }
     }
-    die "login failed : $response->is_success"
+    die 'login failed : ' . $response->is_success
         unless defined $token;
 
     return $token;
