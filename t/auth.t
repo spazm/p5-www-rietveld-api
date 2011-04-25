@@ -53,10 +53,17 @@ SKIP:
     skip "already logged in" ,4  if $auth->is_auth_valid;
 
     isa_ok( $auth, 'UnitTest::WWW::Rietveld::Auth' );
-    ok( defined $auth->auth_token, "login token defined" )
-        or diag explain { token => $auth->auth_token() };
-    ok( $auth->_renew_auth_cookie(), "renew auth cookie" );
-    ok( $auth->authenticate(),       "authenticate succeeds" );
+    my $token = eval { $auth->auth_token };
+    ok( defined $token, "login token defined" )
+        or diag explain { token => $token, error => $@ };
+
+    my $renew        = eval { $auth->_renew_auth_cookie };
+    ok( $renew, "renew auth cookie" )
+        or diag explain { renew => $renew, error => $@ };
+
+    my $authenticate = eval { $auth->authenticate };
+    ok( $authenticate, "authenticate succeeds" )
+        or diag explain { authenticate => $authenticate, error => $@ };
 }
 
 
